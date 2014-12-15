@@ -12,7 +12,7 @@ class SystemConfiguration():
         self.timeline = np.arange(0, time, rate)
 
     def add_block(self, block, position=-1):
-        if -1 < position < len(self.blocks):
+        if -1 >= position:
             self.blocks.insert(position, block)
         else:
             self.blocks.append(block)
@@ -20,14 +20,10 @@ class SystemConfiguration():
 
 class Signal():
     def __init__(self, signal_array):
-        """
-
-        :rtype : Signal
-        """
         self.signal = signal_array
 
     def get_fft(self):
-        spectrum = fft.fftshift(fft.fft(self.signal*np.blackman(np.len(self.signal))))
+        spectrum = fft.fftshift(fft.fft(self.signal * np.blackman(np.len(self.signal))))
         return spectrum / np.max(np.abs(spectrum))
 
     def get_energy(self):
@@ -50,14 +46,19 @@ class Block():
     def output(self):
         return self.signal_out
 
+    @property
+    def name(self):
+        return "Generic block"
+
 
 class InputBlock(Block):
-    def __init__(self, config):
+    def __init__(self, config, frequency=1, amplitude=1):
         super().__init__(config)
-        self.signal_out = self.process(self.signal_in)
+        self.frequency = frequency
+        self.amplitude = amplitude
 
-    def input(self, previous_block):
-        pass
+    def process(self, signal_in):
+        return Signal(self.amplitude * np.sin(self.config.timeline * self.frequency))
 
 
 class PhaseModulatorBlock(Block):
@@ -67,7 +68,7 @@ class PhaseModulatorBlock(Block):
         self.amplitude = amplitude
 
     def process(self, signal_in):
-        return Signal(self.amplitude*np.sin(self.frequency * self.config.timeline + signal_in.signal))
+        return Signal(self.amplitude * np.sin(self.frequency * self.config.timeline + signal_in.signal))
 
 
 class AWGNChannelBlock(Block):
@@ -76,7 +77,7 @@ class AWGNChannelBlock(Block):
         self.snr = snr
 
     def process(self, signal_in):
-        var = signal_in.get_energy
-        sigma = np.sqrt(var)*10**(-self.snr/20)
+        var = signal_in.get_energy()
+        sigma = np.sqrt(var) * 10 ** (-self.snr / 20)
         noise = np.random.normal(loc=0.0, scale=sigma, size=self.config.timeline.shape)
-        return Signal(signal_in.signal+noise)
+        return Signal(signal_in.signal + noise)
