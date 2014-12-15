@@ -70,6 +70,9 @@ class PhaseModulatorBlock(Block):
     def process(self, signal_in):
         return Signal(self.amplitude * np.sin(self.frequency * self.config.timeline + signal_in.signal))
 
+    def name(self):
+        return "Phase Modulator"
+
 
 class AWGNChannelBlock(Block):
     def __init__(self, config, snr=20):
