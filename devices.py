@@ -8,14 +8,20 @@ import numpy.fft as fft
 class SystemConfiguration():
     blocks = []
 
-    def __init__(self, rate=1, time=1):
-        self.timeline = np.arange(0, time, rate)
+    def __init__(self, time=1, rate=1):
+        self.timeline = np.arange(0, time, 1/rate)
 
     def add_block(self, block, position=-1):
         if -1 >= position:
             self.blocks.insert(position, block)
         else:
             self.blocks.append(block)
+
+    def list_blocks(self):
+        print('Total blocks: ', len(self.blocks))
+        for block in self.blocks:
+            print('Block ', self.blocks.index(block), ': ', block.name())
+
 
 
 class Signal():
@@ -34,7 +40,7 @@ class Block():
     def __init__(self, config):
         self.config = config
         self.signal_in = Signal(np.zeros(self.config.timeline.shape))
-        self.signal_out = Signal(np.zeros(self.config.timeline.shape))
+        self.signal_out = self.process(self.signal_in)
 
     def input(self, previous_block):
         self.signal_in = previous_block.output()
@@ -53,25 +59,28 @@ class Block():
 
 class InputBlock(Block):
     def __init__(self, config, frequency=1, amplitude=1):
-        super().__init__(config)
         self.frequency = frequency
         self.amplitude = amplitude
+        super().__init__(config)
 
     def process(self, signal_in):
         return Signal(self.amplitude * np.sin(self.config.timeline * self.frequency))
 
+    def name(self):
+        return "This is an InputBlock."
+
 
 class PhaseModulatorBlock(Block):
     def __init__(self, config, frequency=1, amplitude=1):
-        super().__init__(config)
         self.frequency = frequency
         self.amplitude = amplitude
+        super().__init__(config)
 
     def process(self, signal_in):
         return Signal(self.amplitude * np.sin(self.frequency * self.config.timeline + signal_in.signal))
 
     def name(self):
-        return "Phase Modulator"
+        return "This is a PhaseModulator Block."
 
 
 class AWGNChannelBlock(Block):
