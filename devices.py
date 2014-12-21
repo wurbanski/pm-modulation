@@ -12,7 +12,7 @@ class SystemConfiguration():
         self.timeline = np.arange(0, time, 1/rate)
 
     def add_block(self, block, position=-1):
-        if -1 >= position:
+        if -1 > position:
             self.blocks.insert(position, block)
         else:
             self.blocks.append(block)
@@ -21,6 +21,11 @@ class SystemConfiguration():
         print('Total blocks: ', len(self.blocks))
         for block in self.blocks:
             print('Block ', self.blocks.index(block), ': ', block.name())
+
+    def refresh_blocks(self):
+        for i in range(1, len(self.blocks)):
+            print(i, self.blocks[i].name())
+            self.blocks[i].input(self.blocks[i - 1])
 
 
 
@@ -57,7 +62,7 @@ class Block():
         return "Generic block"
 
 
-class InputBlock(Block):
+class SineInputBlock(Block):
     def __init__(self, config, frequency=1, amplitude=1):
         self.frequency = frequency
         self.amplitude = amplitude
@@ -67,7 +72,7 @@ class InputBlock(Block):
         return Signal(self.amplitude * np.sin(self.config.timeline * self.frequency))
 
     def name(self):
-        return "This is an InputBlock."
+        return "SineInput Block"
 
 
 class PhaseModulatorBlock(Block):
@@ -80,13 +85,13 @@ class PhaseModulatorBlock(Block):
         return Signal(self.amplitude * np.sin(self.frequency * self.config.timeline + signal_in.signal))
 
     def name(self):
-        return "This is a PhaseModulator Block."
+        return "PhaseModulator Block"
 
 
 class AWGNChannelBlock(Block):
     def __init__(self, config, snr=20):
-        super().__init__(config)
         self.snr = snr
+        super().__init__(config)
 
     def process(self, signal_in):
         var = signal_in.get_energy()
