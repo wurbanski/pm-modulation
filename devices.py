@@ -1,3 +1,5 @@
+import math
+
 __author__ = 'Wojciech'
 
 import numpy as np
@@ -20,11 +22,11 @@ class SystemConfiguration():
     def list_blocks(self):
         print('Total blocks: ', len(self.blocks))
         for block in self.blocks:
-            print('Block ', self.blocks.index(block), ': ', block.name())
+            print('Block ', self.blocks.index(block), ': ', block.name(), sep='')
 
     def refresh_blocks(self):
         for i in range(1, len(self.blocks)):
-            print(i, self.blocks[i].name())
+            print(i - 1, self.blocks[i - 1].name(), 'to', i, self.blocks[i].name())
             self.blocks[i].input(self.blocks[i - 1])
 
 
@@ -57,7 +59,6 @@ class Block():
     def output(self):
         return self.signal_out
 
-    @property
     def name(self):
         return "Generic block"
 
@@ -95,6 +96,12 @@ class AWGNChannelBlock(Block):
 
     def process(self, signal_in):
         var = signal_in.get_energy()
-        sigma = np.sqrt(var) * 10 ** (-self.snr / 20)
-        noise = np.random.normal(loc=0.0, scale=sigma, size=self.config.timeline.shape)
-        return Signal(signal_in.signal + noise)
+        if var > 0:
+            sigma = np.sqrt(var) * 10 ** (-self.snr / 20)
+            noise = np.random.normal(loc=0.0, scale=sigma, size=self.config.timeline.shape)
+            return Signal(signal_in.signal + noise)
+        else:
+            return signal_in
+
+    def name(self):
+        return "AWGNChannel Block"
