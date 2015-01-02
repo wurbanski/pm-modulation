@@ -1,29 +1,32 @@
+from blocks import SineInputBlock, PhaseModulatorBlock, AWGNChannelBlock, LowPassFilterBlock
+from system import SystemConfiguration
+
 __author__ = 'Wojciech Urbański'
 
-import devices
-from devices import freqplot
+import signals
+from signals import freqplot
 import matplotlib.pyplot as plt
 import numpy as np
 
 print("Setting up the system...")
-config = devices.SystemConfiguration(1, 500)
+config = SystemConfiguration(1, 500)
 
 print("Setting up InputBlock...")
-input_block = devices.SineInputBlock(config, 10, 50)
+input_block = SineInputBlock(config, 10, 50)
 print(input_block.name)
 
 print("Adding block to the system...")
 config.add_block(input_block)
 
 print("Setting up PhaseModulatorBlock")
-pm_block = devices.PhaseModulatorBlock(config, 1, 10)
+pm_block = PhaseModulatorBlock(config, 1, 10)
 print(pm_block.name)
 
 print("Adding block to the system...")
 config.add_block(pm_block)
 
 print("Setting up AWGNChannelBlock")
-awgn_block = devices.AWGNChannelBlock(config)
+awgn_block = AWGNChannelBlock(config)
 print(awgn_block.name)
 
 print("Adding block to the system...")
@@ -32,7 +35,7 @@ config.add_block(awgn_block)
 print("Adding LowPassFilter to the system...")
 BW = 2 * (input_block.frequency + np.max(input_block.amplitude * np.diff(input_block.output.signal)))
 print('Bandwidth of the signal: ', BW)
-lpf_block = devices.LowPassFilterBlock(config, high_freq=BW)
+lpf_block = LowPassFilterBlock(config, high_freq=BW)
 print(lpf_block.name)
 config.add_block(lpf_block)
 
