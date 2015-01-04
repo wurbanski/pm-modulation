@@ -23,12 +23,12 @@ class SystemConfiguration():
 
     def list_blocks(self):
         print("Total blocks: ", len(self.blocks))
-        for block in self.blocks:
-            print("Block ", self.blocks.index(block), ': ', block.name, sep='')
+        for i, block in enumerate(self.blocks):
+            print("%2d: %s" % (i, block.name))
 
     def refresh_blocks(self):
         for i in range(1, len(self.blocks)):
-            print(i - 1, self.blocks[i - 1].name, 'to', i, self.blocks[i].name)
+            print("%d %s - %d %s" % (i - 1, self.blocks[i - 1].name, i, self.blocks[i].name))
             self.blocks[i].connect(self.blocks[i - 1])
 
     def get_block(self, i):
@@ -37,12 +37,12 @@ class SystemConfiguration():
 
         :rtype : Block
         """
-        if not isinstance(i, int):
-            raise TypeError("Indices can only be integers.")
-        if i < len(self.blocks):
+        try:
             return self.blocks[i]
-        else:
-            raise ValueError("No block of specified type exists.")
+        except IndexError:
+            return None
+        except TypeError:
+            return None
 
     @property
     def input_block(self):
