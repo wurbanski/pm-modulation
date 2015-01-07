@@ -1,6 +1,6 @@
 import numpy as np
-from scipy.signal import lfilter, butter
-
+from scipy.signal import lfilter, butter, hilbert
+from matplotlib import pyplot as plt
 from signals import Signal
 
 
@@ -17,18 +17,18 @@ def butter_lowpass(cutoff, fs, order=5):
 class Block():
     def __init__(self, config, name="Generic Block"):
         self._config = config
-        self._signal_in = Signal(np.zeros(self._config.timeline.shape))
-        self._signal_out = self.process(self._signal_in)
+        self._input = Signal(np.zeros(self._config.timeline.shape))
+        self._output = self._process()
         self._name = name
 
     def connect(self, previous_block):
         if isinstance(previous_block, Block):
-            self._signal_in = previous_block.output
-            self._signal_out = self.process(self._signal_in)
+            self._input = previous_block.output
+            self._output = self._process()
         else:
             raise TypeError("Wrong type, cannot connect.")
 
-    def process(self, signal_in):
+    def _process(self):
         pass
 
     @property
@@ -37,7 +37,7 @@ class Block():
 
         :rtype : Signal
         """
-        return self._signal_in
+        return self._input
 
     @property
     def output(self):
@@ -45,7 +45,7 @@ class Block():
 
         :rtype : Signal
         """
-        return self._signal_out
+        return self._output
 
     @property
     def name(self):
@@ -58,7 +58,7 @@ class SineInputBlock(Block):
         self.amplitude = amplitude
         super().__init__(config, name)
 
-    def process(self, signal_in):
+    def _process(self):
         return Signal(self.amplitude * np.sin(self._config.timeline * self.frequency))
 
 
@@ -68,23 +68,26 @@ class PhaseModulatorBlock(Block):
         self.amplitude = amplitude
         super().__init__(config, name)
 
-    def process(self, signal_in):
-        return Signal(self.amplitude * np.sin(self.frequency * self._config.timeline + signal_in.signal))
+    def _process(self):
+        return Signal(self.amplitude * np.sin(self.frequency * self._config.timeline + self.input.signal))
 
 
 class AWGNChannelBlock(Block):
     def __init__(self, config, snr=20, name="AWGN Channel"):
         self._snr = snr
+        self._noise = None
         super().__init__(config, name)
 
-    def process(self, signal_in):
-        var = signal_in.get_energy()
+    def _process(self):
+        var = self.input.get_energy()
         if var > 0:
             sigma = np.sqrt(var) * 10 ** (-self._snr / 20)
             noise = np.random.normal(loc=0.0, scale=sigma, size=self._config.timeline.shape)
-            return Signal(signal_in.signal + noise)
+            self._noise = noise
+            return Signal(self.input.signal + noise)
         else:
-            return signal_in
+            self._noise = np.zeros(self._config.timeline.shape)
+            return self.input
 
 
 class LowPassFilterBlock(Block):
@@ -93,15 +96,23 @@ class LowPassFilterBlock(Block):
         super().__init__(config, name)
         self._name = "Low-Pass Filter (0 - %d Hz)" % self.high_freq
 
-    def process(self, signal_in):
+    def _process(self):
         b, a = butter_lowpass(self.high_freq, self._config.sample_rate)
         y = lfilter(b, a, self.input.signal)
         return Signal(y)
 
 
 class PhaseDemodulatorBlock(Block):
-    def __init__(self, config, name="Phase Demodulator"):
+    def __init__(self, config, carrier_freq=1, name="Phase Demodulator"):
+        self._carrier_freq = carrier_freq
         super().__init__(config, name)
 
-    def process(self, signal_in):
-        square_signal = signal_in(signal_in > 0.5)
+    def _process(self):
+        h_signal = hilbert(self.input.signal)
+        phase = np.unwrap(np.angle(h_signal))
+        output = phase - self._carrier_freq * self._config.timeline
+        return Signal(output)
+
+
+
+

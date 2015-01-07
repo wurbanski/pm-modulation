@@ -22,5 +22,7 @@ class Signal():
     def get_energy(self):
         return np.var(self.signal)
 
-    def plot(self, timeline, label="Signal"):
+    def plot(self, timeline=0, label="Signal"):
+        if timeline is 0:
+            timeline = np.arange(0, len(self.signal))
         plt.plot(timeline, self.signal, label=label)

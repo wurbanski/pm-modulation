@@ -12,14 +12,16 @@ class SystemConfiguration():
         self.time = time
         self.sample_rate = sample_rate
 
+    def __iter__(self):
+        return self.blocks.__iter__()
+
     def add_block(self, block, position=-1):
-        if isinstance(block, Block):
-            if -1 > position:
-                self.blocks.insert(position, block)
-            else:
-                self.blocks.append(block)
-        else:
+        if not isinstance(block, Block):
             raise TypeError("Specified element is not of 'Block' type")
+        if -1 > position:
+            self.blocks.insert(position, block)
+        else:
+            self.blocks.append(block)
 
     def list_blocks(self):
         print("Total blocks: ", len(self.blocks))
