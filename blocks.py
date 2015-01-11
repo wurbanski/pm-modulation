@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import lfilter, butter, hilbert
+from scipy.signal import lfilter, butter, hilbert, detrend
 from matplotlib import pyplot as plt
 from signals import Signal
 
@@ -53,23 +53,24 @@ class Block():
 
 
 class SineInputBlock(Block):
-    def __init__(self, config, frequency=1, amplitude=1, name="Sine Input"):
+    def __init__(self, config, frequency=1, name="Sine Input"):
         self.frequency = frequency
-        self.amplitude = amplitude
         super().__init__(config, name)
 
     def _process(self):
-        return Signal(self.amplitude * np.sin(self._config.timeline * self.frequency))
+        return Signal(np.sin(self.frequency * self._config.timeline))
 
 
 class PhaseModulatorBlock(Block):
-    def __init__(self, config, frequency=1, amplitude=1, name="Phase Modulator"):
+    def __init__(self, config, frequency=1, amplitude=1, deviation=1, name="Phase Modulator"):
         self.frequency = frequency
         self.amplitude = amplitude
+        self.deviation = deviation
         super().__init__(config, name)
 
     def _process(self):
-        return Signal(self.amplitude * np.sin(self.frequency * self._config.timeline + self.input.signal))
+        return Signal(self.amplitude * np.sin(self.frequency * self._config.timeline +
+                                              self.deviation * self.input.signal))
 
 
 class AWGNChannelBlock(Block):
@@ -103,14 +104,18 @@ class LowPassFilterBlock(Block):
 
 
 class PhaseDemodulatorBlock(Block):
-    def __init__(self, config, carrier_freq=1, name="Phase Demodulator"):
+    def __init__(self, config, deviation=1, carrier_freq=1, name="Phase Demodulator"):
         self._carrier_freq = carrier_freq
+        self._deviation = deviation
         super().__init__(config, name)
 
     def _process(self):
+        # Create analytic signal using Hilbert transform
         h_signal = hilbert(self.input.signal)
+        # Angle of analytic signal corresponds to phase of signal
         phase = np.unwrap(np.angle(h_signal))
-        output = phase - self._carrier_freq * self._config.timeline
+        # Hilbert transform changes sine to cosine, hence +pi/2
+        output = (phase + np.pi / 2 - self._carrier_freq * self._config.timeline) / self._deviation
         return Signal(output)
 
 
