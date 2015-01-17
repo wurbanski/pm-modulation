@@ -7,7 +7,7 @@ __author__ = 'Wojciech Urbański'
 class SystemConfiguration():
     blocks = []
 
-    def __init__(self, time=1, sample_frequency=1, frequency_deviation=1):
+    def __init__(self, time=1, sample_frequency=1, phase_dev=1):
         self.time = time
         self.sample_frequency = sample_frequency
         self.timeline = np.arange(0, time, 1 / sample_frequency)
@@ -24,9 +24,10 @@ class SystemConfiguration():
             self.blocks.append(block)
 
     def list_blocks(self):
-        print("Total blocks: ", len(self.blocks))
-        for i, block in enumerate(self.blocks):
-            print("%2d: %s" % (i, block.name))
+        print("Liczba bloków: ", len(self.blocks))
+        if len(self.blocks) > 0:
+            for i, block in enumerate(self.blocks):
+                print("%2d: %s" % (i, block.name))
 
     def connect_blocks(self):
         for i in range(1, len(self.blocks)):
@@ -53,7 +54,7 @@ class SystemConfiguration():
     @sample_frequency.setter
     def sample_frequency(self, sample_frequency):
         if self.time < 1/sample_frequency:
-            raise ValueError("Sample interval cannot be lower than simulation time.")
+            raise ValueError("Okres próbkowania nie może być mniejszy niż czas symulacji.")
         self._sample_frequency = sample_frequency
 
     @property
@@ -63,5 +64,5 @@ class SystemConfiguration():
     @time.setter
     def time(self, time):
         if 0 >= time:
-            raise ValueError("Time has to be longer than 0.")
+            raise ValueError("Czas symulacji musi być dłuższy niż 0.")
         self._time = time
