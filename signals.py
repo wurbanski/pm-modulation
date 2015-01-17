@@ -24,4 +24,4 @@ class Signal():
 
     def plot_fft(self):
         freqline = fft.fftshift(fft.fftfreq(self.length, 1 / self.sample_frequency))
-        return freqline, abs(self._calculate_fft())
+        return freqline, 20 * np.log10(abs(self._calculate_fft()))

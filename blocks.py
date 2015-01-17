@@ -1,20 +1,15 @@
 import numpy as np
-from scipy.signal import lfilter, butter, hilbert
+from scipy.signal import lfilter, hilbert
+
+from filters import butter_lowpass, butter_bandpass
 from signals import Signal
 
 
 __author__ = 'Wojciech Urbański'
 
 
-def butter_lowpass(cutoff, fs, order=5):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    return b, a
-
-
 class Block():
-    def __init__(self, config, name="Generic Block"):
+    def __init__(self, config, name="Postawowy blok"):
         self._config = config
         self._input = Signal(np.zeros(self._config.timeline.shape), config.sample_frequency)
         self._output = self._process()
@@ -25,7 +20,7 @@ class Block():
             self._input = previous_block.output
             self._output = self._process()
         else:
-            raise TypeError("Wrong type, cannot connect.")
+            raise TypeError("Nieprawidłowy typ, nie można połączyć")
 
     def _process(self):
         pass
@@ -52,31 +47,31 @@ class Block():
 
 
 class SineInputBlock(Block):
-    def __init__(self, config, frequency=1, name="Sine Input"):
+    def __init__(self, config, frequency=1, name="Generator sinusoidalny"):
         self.frequency = frequency
         super().__init__(config, name)
 
     def _process(self):
-        return Signal(np.sin(self.frequency * self._config.timeline), self._config.sample_frequency)
+        return Signal(np.sin(2 * np.pi * self.frequency * self._config.timeline), self._config.sample_frequency)
 
     def connect(self, previous_block):
         pass
 
 
 class PhaseModulatorBlock(Block):
-    def __init__(self, config, frequency=1, amplitude=1, deviation=1, name="Phase Modulator"):
+    def __init__(self, config, frequency=1, amplitude=1, deviation=1, name="Modulator fazowy"):
         self.frequency = frequency
         self.amplitude = amplitude
         self.deviation = deviation
         super().__init__(config, name)
 
     def _process(self):
-        return Signal(self.amplitude * np.sin(self.frequency * self._config.timeline +
+        return Signal(self.amplitude * np.sin(2 * np.pi * self.frequency * self._config.timeline +
                                               self.deviation * self.input.signal), self._config.sample_frequency)
 
 
 class AWGNChannelBlock(Block):
-    def __init__(self, config, snr=20, name="AWGN Channel"):
+    def __init__(self, config, snr=20, name="Kanał AWGN"):
         self._snr = snr
         self._noise = np.zeros(config.timeline.shape)
         super().__init__(config, name)
@@ -92,12 +87,18 @@ class AWGNChannelBlock(Block):
             self._noise = Signal(np.zeros(self._config.timeline.shape), self._config.sample_frequency)
             return self.input
 
+    def get_snr(self):
+        mean = np.mean(self.input.signal)
+        signal_pwr = np.sum((self.input.signal - mean) ** 2)
+        noise_pwr = np.sum(self._noise.signal ** 2)
+        return 10 * np.log10(signal_pwr / noise_pwr)
+
 
 class LowPassFilterBlock(Block):
-    def __init__(self, config, high_freq=10, name="Low-Pass Filter"):
+    def __init__(self, config, high_freq=10, name="Filtr dolprzepustowy"):
         self.high_freq = high_freq
         super().__init__(config, name)
-        self._name = "Low-Pass Filter (0 - %d Hz)" % self.high_freq
+        self._name = "Filtr dolnoprzepustowy (0 - %.2f Hz)" % self.high_freq
 
     def _process(self):
         b, a = butter_lowpass(self.high_freq, self._config.sample_frequency)
@@ -105,8 +106,21 @@ class LowPassFilterBlock(Block):
         return Signal(y, self._config.sample_frequency)
 
 
+class BandPassFilterBlock(Block):
+    def __init__(self, config, low_freq=1, high_freq=10, name="Filtr pasmowoprzepustowy"):
+        self.high_freq = high_freq
+        self.low_freq = low_freq
+        super().__init__(config, name)
+        self._name = "Filtr pasmowoprzepustowy (%.2f - %.2f Hz)" % (self.low_freq, self.high_freq)
+
+    def _process(self):
+        b, a = butter_bandpass(self.low_freq, self.high_freq, self._config.sample_frequency)
+        y = lfilter(b, a, self.input.signal)
+        return Signal(y, self._config.sample_frequency)
+
+
 class PhaseDemodulatorBlock(Block):
-    def __init__(self, config, deviation=1, carrier_freq=1, name="Phase Demodulator"):
+    def __init__(self, config, deviation=1, carrier_freq=1, name="Demodulator fazowy"):
         self._carrier_freq = carrier_freq
         self._deviation = deviation
         super().__init__(config, name)
@@ -118,5 +132,6 @@ class PhaseDemodulatorBlock(Block):
         # Angle of analytic signal corresponds to phase of given signal
         phase = np.unwrap(np.angle(h_signal))
         # We reduce the phase value by linear component omega*t
-        output = (phase - self._carrier_freq * self._config.timeline) / self._deviation
+        output = (phase - 2 * np.pi * self._carrier_freq * self._config.timeline) / self._deviation
+        # output = detrend(phase)
         return Signal(output, self._config.sample_frequency)

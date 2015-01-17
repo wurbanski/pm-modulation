@@ -23,6 +23,10 @@ class SystemConfiguration():
         else:
             self.blocks.append(block)
 
+    def add_blocks(self, blocks):
+        for block in blocks:
+            self.add_block(block)
+
     def list_blocks(self):
         print("Liczba bloków: ", len(self.blocks))
         if len(self.blocks) > 0:
