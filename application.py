@@ -25,7 +25,7 @@ class PMApplication():
             os.makedirs(self._output_dir)
         rc('font', family='Arial')
         self._fft_limit = 0.01
-        rcParams.update({'figure.autolayout': True})
+        # rcParams.update({'figure.autolayout': True})
 
 
     def run(self):
@@ -47,7 +47,7 @@ class PMApplication():
         self._config.connect_blocks()
         self._config.list_blocks()
 
-        self._plot_stuff()
+        # self._plot_stuff()
         self._plot_signal()
         self._plot_input_ffts()
 
@@ -70,52 +70,34 @@ class PMApplication():
         plt.close()
 
     def _plot_signal(self):
-        signal_plot = plt.figure(figsize=(8, 12))
-        plt.tick_params(axis='both', which='major', labelsize="x-small")
         limit = 1.5 * np.max(self._config.blocks[2].output.signal)
-
-        plt.subplot(511)
-        plt.title("Sygnał modulujący")
-
-        plt.subplot(512)
-        plt.title("Sygnał zmodulowany")
-
-        plt.subplot(513)
-        plt.title("Sygnał za kanałem AWGN")
-
-        plt.subplot(514)
-        plt.title("Sygnał zdemodulowany")
-
-        plt.subplot(515)
-        plt.title("Sygnał odfiltrowany")
-
-        for i in range(1, len(self._config.blocks) + 1):
-            plt.subplot(5, 1, i)
-            timeline, values = self._config.blocks[i - 1].output.plot()
-            plt.plot(timeline, values)
-            plt.ylim(-limit, limit)
-            plt.grid(True)
-            plt.xlabel("Czas [s]", fontsize="small")
-            plt.ylabel("Wartość [V]", fontsize="small")
-
-        plt.tight_layout()
+        signal_plot, subplots = plt.subplots(5, figsize=(8, 12))
+        signal_plot.suptitle("Przebiegi czasowe sygnału", fontsize="x-large")
+        for i, subplot in enumerate(subplots):
+            timeline, values = self._config.blocks[i].output.plot()
+            subplot.plot(timeline, values)
+            subplot.set_ylim(-limit, limit)
+            subplot.grid(True)
+            subplot.set_xlabel("Czas [s]", fontsize="small")
+            subplot.set_ylabel("Wartość [V]", fontsize="small")
+            subplot.set_title("Wyjście z: %s" % self._config.blocks[i].name)
+        signal_plot.set_tight_layout({"rect": (0, 0, 1, 0.96)})
         plt.show()
         signal_plot.savefig(os.path.join(self._output_dir, "signal.svg"))
 
     def _plot_input_ffts(self):
-
         fft_plot, subs = plt.subplots(2, figsize=(8, 8))
-
-        for i in range(len(subs)):
+        fft_plot.suptitle("Wykresy widm Fouriera", fontsize="x-large")
+        for i, subplot in enumerate(subs):
             freqline, values = self._config.blocks[i].output.plot_fft()
-            subs[i].set_title(self._config.blocks[i].name)
-            subs[i].plot(freqline[values > self._fft_limit], values[values > self._fft_limit])
-            subs[i].grid(True)
-            subs[i].set_xlabel("Częstotliwość [Hz]", fontsize="small")
-            subs[i].set_ylabel("Moduł widma", fontsize="small")
+            subplot.set_title("Wyjście z %s:" % self._config.blocks[i].name)
+            subplot.plot(freqline[values > self._fft_limit], values[values > self._fft_limit])
+            subplot.grid(True)
+            subplot.set_xlabel("Częstotliwość [Hz]", fontsize="small")
+            subplot.set_ylabel("Moduł widma", fontsize="small")
 
-        # fft_plot.tight_layout()
-        fft_plot.show()
+        fft_plot.set_tight_layout({"rect": (0, 0, 1, 0.95)})
+        plt.show()
         fft_plot.savefig(os.path.join(self._output_dir, "spectrum.svg"))
 
     def _general_setup(self):
