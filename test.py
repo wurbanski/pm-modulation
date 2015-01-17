@@ -1,13 +1,10 @@
 from blocks import SineInputBlock, PhaseModulatorBlock, AWGNChannelBlock, LowPassFilterBlock, PhaseDemodulatorBlock
 from system import SystemConfiguration
+import matplotlib.pyplot as plt
+import numpy as np
 
 __author__ = 'Wojciech Urbański'
 
-import signals
-from signals import freqplot
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.signal import hilbert
 
 modulator_freq = 50
 phase_deviation = 0.5
@@ -39,19 +36,19 @@ BW = 2 * (carrier_frequency + np.max(phase_deviation * np.diff(input_block.outpu
 print('Bandwidth of the signal: ', BW)
 
 lpf_block1 = LowPassFilterBlock(config, high_freq=modulator_freq)
-# config.add_block(lpf_block1)
 
 pmdemod_block = PhaseDemodulatorBlock(config, carrier_freq=carrier_frequency, deviation=phase_deviation)
 config.add_block(pmdemod_block)
 
 lpf_block = LowPassFilterBlock(config, high_freq=BW / 3)
-config.add_block(lpf_block)
+# config.add_block(lpf_block)
+config.add_block(lpf_block1)
 
-config.refresh_blocks()
+config.connect_blocks()
 # print("phase of input:\n", carrier_frequency*config.timeline[:9] + phase_deviation * modulator_freq * config.timeline[:9])
 # print("Phase of modulator:\n", phase_deviation * modulator_freq * config.timeline[:9])
-config.blocks[0].output.plot(config.timeline, "Modulator")
-config.blocks[1].output.plot(config.timeline, "Modulowany")
+plt.plot(*config.blocks[0].output.plot(), label="Modulator")
+plt.plot(*config.blocks[1].output.plot(), label="Modulowany")
 plt.legend()
 plt.show()
 plt.close()
@@ -61,8 +58,8 @@ print("Phase deviation:", phase_deviation)
 print("Modulator mean:", np.mean(config.blocks[0].output.signal))
 print("Output mean:", np.mean(config.blocks[-1].output.signal))
 # config.blocks[0].output.plot(config.timeline, "Modulator")
-config.blocks[-1].input.plot(config.timeline, "Input")
-config.blocks[-1].output.plot(config.timeline, "Output")
+plt.plot(*config.blocks[-1].input.plot(), label="input")
+plt.plot(*config.blocks[-1].output.plot(), label="Output")
 plt.legend()
 plt.show()
 plt.close()

@@ -1,6 +1,5 @@
 import numpy as np
-from scipy.signal import lfilter, butter, hilbert, detrend
-from matplotlib import pyplot as plt
+from scipy.signal import lfilter, butter, hilbert
 from signals import Signal
 
 
@@ -17,7 +16,7 @@ def butter_lowpass(cutoff, fs, order=5):
 class Block():
     def __init__(self, config, name="Generic Block"):
         self._config = config
-        self._input = Signal(np.zeros(self._config.timeline.shape))
+        self._input = Signal(np.zeros(self._config.timeline.shape), config.sample_frequency)
         self._output = self._process()
         self._name = name
 
@@ -58,7 +57,10 @@ class SineInputBlock(Block):
         super().__init__(config, name)
 
     def _process(self):
-        return Signal(np.sin(self.frequency * self._config.timeline))
+        return Signal(np.sin(self.frequency * self._config.timeline), self._config.sample_frequency)
+
+    def connect(self, previous_block):
+        pass
 
 
 class PhaseModulatorBlock(Block):
@@ -70,13 +72,13 @@ class PhaseModulatorBlock(Block):
 
     def _process(self):
         return Signal(self.amplitude * np.sin(self.frequency * self._config.timeline +
-                                              self.deviation * self.input.signal))
+                                              self.deviation * self.input.signal), self._config.sample_frequency)
 
 
 class AWGNChannelBlock(Block):
     def __init__(self, config, snr=20, name="AWGN Channel"):
         self._snr = snr
-        self._noise = None
+        self._noise = np.zeros(config.timeline.shape)
         super().__init__(config, name)
 
     def _process(self):
@@ -84,10 +86,10 @@ class AWGNChannelBlock(Block):
         if var > 0:
             sigma = np.sqrt(var) * 10 ** (-self._snr / 20)
             noise = np.random.normal(loc=0.0, scale=sigma, size=self._config.timeline.shape)
-            self._noise = noise
-            return Signal(self.input.signal + noise)
+            self._noise = Signal(noise, self._config.sample_frequency)
+            return Signal(self.input.signal + noise, self._config.sample_frequency)
         else:
-            self._noise = np.zeros(self._config.timeline.shape)
+            self._noise = Signal(np.zeros(self._config.timeline.shape), self._config.sample_frequency)
             return self.input
 
 
@@ -98,9 +100,9 @@ class LowPassFilterBlock(Block):
         self._name = "Low-Pass Filter (0 - %d Hz)" % self.high_freq
 
     def _process(self):
-        b, a = butter_lowpass(self.high_freq, self._config.sample_rate)
+        b, a = butter_lowpass(self.high_freq, self._config.sample_frequency)
         y = lfilter(b, a, self.input.signal)
-        return Signal(y)
+        return Signal(y, self._config.sample_frequency)
 
 
 class PhaseDemodulatorBlock(Block):
@@ -111,13 +113,10 @@ class PhaseDemodulatorBlock(Block):
 
     def _process(self):
         # Create analytic signal using Hilbert transform
-        h_signal = hilbert(self.input.signal)
-        # Angle of analytic signal corresponds to phase of signal
+        # Using hilbert twice changes signal to -signal
+        h_signal = -hilbert(hilbert(self.input.signal).imag)
+        # Angle of analytic signal corresponds to phase of given signal
         phase = np.unwrap(np.angle(h_signal))
-        # Hilbert transform changes sine to cosine, hence +pi/2
-        output = (phase + np.pi / 2 - self._carrier_freq * self._config.timeline) / self._deviation
-        return Signal(output)
-
-
-
-
+        # We reduce the phase value by linear component omega*t
+        output = (phase - self._carrier_freq * self._config.timeline) / self._deviation
+        return Signal(output, self._config.sample_frequency)

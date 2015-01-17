@@ -7,10 +7,10 @@ __author__ = 'Wojciech Urbański'
 class SystemConfiguration():
     blocks = []
 
-    def __init__(self, time=1, sample_rate=1):
-        self.timeline = np.arange(0, time, 1 / sample_rate)
+    def __init__(self, time=1, sample_frequency=1, frequency_deviation=1):
         self.time = time
-        self.sample_rate = sample_rate
+        self.sample_frequency = sample_frequency
+        self.timeline = np.arange(0, time, 1 / sample_frequency)
 
     def __iter__(self):
         return self.blocks.__iter__()
@@ -28,7 +28,7 @@ class SystemConfiguration():
         for i, block in enumerate(self.blocks):
             print("%2d: %s" % (i, block.name))
 
-    def refresh_blocks(self):
+    def connect_blocks(self):
         for i in range(1, len(self.blocks)):
             print("%d %s - %d %s" % (i - 1, self.blocks[i - 1].name, i, self.blocks[i].name))
             self.blocks[i].connect(self.blocks[i - 1])
@@ -47,9 +47,21 @@ class SystemConfiguration():
             return None
 
     @property
-    def input_block(self):
-        return self.blocks[0]
+    def sample_frequency(self):
+        return self._sample_frequency
+
+    @sample_frequency.setter
+    def sample_frequency(self, sample_frequency):
+        if self.time < 1/sample_frequency:
+            raise ValueError("Sample interval cannot be lower than simulation time.")
+        self._sample_frequency = sample_frequency
 
     @property
-    def output_block(self):
-        return self.blocks[-1]
+    def time(self):
+        return self._time
+
+    @time.setter
+    def time(self, time):
+        if 0 >= time:
+            raise ValueError("Time has to be longer than 0.")
+        self._time = time
