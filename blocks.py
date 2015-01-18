@@ -101,9 +101,9 @@ class LowPassFilterBlock(Block):
         self._name = "Filtr dolnoprzepustowy (0 - %.2f Hz)" % self.high_freq
 
     def _process(self):
-        b, a = butter_lowpass(self.high_freq, self._config.sample_frequency)
+        b, a = butter_lowpass(self.high_freq, self._config.sample_frequency, analog=False)
         y = lfilter(b, a, self.input.signal)
-        return Signal(y, self._config.sample_frequency)
+        return Signal(10e10 * y, self._config.sample_frequency)
 
 
 class BandPassFilterBlock(Block):
@@ -114,7 +114,7 @@ class BandPassFilterBlock(Block):
         self._name = "Filtr pasmowoprzepustowy (%.2f - %.2f Hz)" % (self.low_freq, self.high_freq)
 
     def _process(self):
-        b, a = butter_bandpass(self.low_freq, self.high_freq, self._config.sample_frequency)
+        b, a = butter_bandpass(self.low_freq, self.high_freq, self._config.sample_frequency, order=8, analog=True)
         y = lfilter(b, a, self.input.signal)
         return Signal(y, self._config.sample_frequency)
 
@@ -133,5 +133,7 @@ class PhaseDemodulatorBlock(Block):
         phase = np.unwrap(np.angle(h_signal))
         # We reduce the phase value by linear component omega*t
         output = (phase - 2 * np.pi * self._carrier_freq * self._config.timeline) / self._deviation
+        # unwrap() sometimes changes first few samples by too much, substracting mean() fixes this
+        output -= np.mean(output)
         # output = detrend(phase)
         return Signal(output, self._config.sample_frequency)

@@ -13,7 +13,7 @@ class Signal():
 
     def _calculate_fft(self):
         spectrum = fft.fftshift(fft.fft(self.signal))
-        return spectrum / np.max(np.abs(spectrum))
+        return spectrum[len(spectrum) / 2:] / np.max(np.abs(spectrum))
 
     def get_energy(self):
         return np.var(self.signal)
@@ -24,4 +24,4 @@ class Signal():
 
     def plot_fft(self):
         freqline = fft.fftshift(fft.fftfreq(self.length, 1 / self.sample_frequency))
-        return freqline, 20 * np.log10(abs(self._calculate_fft()))
+        return freqline[len(freqline) / 2:], 20 * np.log10(abs(self._calculate_fft()))
