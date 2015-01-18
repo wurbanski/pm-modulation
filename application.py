@@ -7,6 +7,17 @@ import matplotlib.pyplot as plt
 from matplotlib import rc
 
 
+def finput(prompt):
+    while True:
+        try:
+            value = float(input(prompt))
+        except ValueError:
+            print("Nieprawidłowa wartość!")
+            continue
+        else:
+            return value
+
+
 class PMApplication():
     _output_dir = "output"
 
@@ -30,8 +41,45 @@ class PMApplication():
         self._BW = 2 * (self._modulator_freq + self._phase_dev)
         self._snr = 8
 
+    def _manual_setup(self):
+        print("0 => Wartości domyślne (poniżej):")
+        self._print_parameters()
+        print()
+        while True:
+            validate = -1
+            while validate < 0:
+                validate = finput("Częstotliwość próbkowania: ")
+            self._sample_freq = validate if validate > 0 else 6400
+            validate = -1
+            while validate < 0 or validate > self._sample_freq / 2:
+                validate = finput("Częstotliwość nośnej (0 - %.2f) : " % (self._sample_freq / 2))
+            self._carrier_frequency = validate if validate > 0 else self._sample_freq / 64
+            validate = -1
+            while validate < 0 or validate > self._carrier_frequency / 2:
+                validate = finput("Częstotliwość modulatora (0 - %.2f) : " % (self._carrier_frequency / 2))
+            self._modulator_freq = validate if validate > 0 else self._carrier_frequency / 10
+            validate = -1
+            while validate < 0 or validate > np.pi:
+                validate = finput("Dewiacja fazy (0-%.2f): " % np.pi)
+            self._phase_dev = validate if validate > 0 else 1
+            if (self._carrier_frequency + self._BW) < self._sample_freq / 2:
+                break
+        validate = -1
+        while validate < 0:
+            validate = finput("Amplituda nośnej: ")
+        self._carrier_amplitude = validate if validate > 0 else 1
+        validate = -1
+        while validate < 0 or validate < 1 / self._sample_freq:
+            validate = finput("Czas symulacji (>%.2f): " % (1 / self._sample_freq))
+        self._simulation_time = validate if validate > 0 else 64 / self._carrier_frequency
+        validate = -1
+        while validate < 0:
+            validate = finput("SNR (>0): ")
+        self._snr = validate if validate > 0 else 15
+        self._BW = 2 * (self._modulator_freq + self._phase_dev)
+
     def run(self):
-        self._setup()
+        self._manual_setup()
         self._print_parameters()
         print("Ustawianie systemu bloków...")
         self._config = SystemConfiguration(self._simulation_time, self._sample_freq)
@@ -40,7 +88,7 @@ class PMApplication():
                        PhaseModulatorBlock(self._config, self._carrier_frequency,
                                            self._carrier_amplitude, self._phase_dev),
                        AWGNChannelBlock(self._config, snr=self._snr),
-                       LowPassFilterBlock(self._config, high_freq=2 * (self._carrier_frequency + self._BW / 2)),
+                       LowPassFilterBlock(self._config, high_freq=(self._carrier_frequency + self._BW)),
                        PhaseDemodulatorBlock(self._config, carrier_freq=self._carrier_frequency,
                                              deviation=self._phase_dev)]
 
@@ -129,11 +177,11 @@ class PMApplication():
         spectrogram_plot.savefig(os.path.join(self._output_dir, "spectrogram.png"))
 
     def _print_parameters(self):
+        print("Częstotliwość próbkowania: %.2f samp/s" % self._sample_freq)
+        print("Częstotliwość nośnej: %.2f Hz" % self._carrier_frequency)
         print("Częstotliwość modulatora: %.2f Hz" % self._modulator_freq)
         print("Dewiacja fazy: %.2f rad" % self._phase_dev)
-        print("Częstotliwość nośnej: %.2f Hz" % self._carrier_frequency)
         print("Amplituda nośnej: %.2f V" % self._carrier_amplitude)
-        print("Częstotliwość próbkowania: %.2f sam/s" % self._sample_freq)
         print("Czas symulacji: %.2f s" % self._simulation_time)
         print("Szerokość pasma sygnału: %.2f Hz" % self._BW)
 
