@@ -106,19 +106,6 @@ class LowPassFilterBlock(Block):
         return Signal(10e10 * y, self._config.sample_frequency)
 
 
-class BandPassFilterBlock(Block):
-    def __init__(self, config, low_freq=1, high_freq=10, name="Filtr pasmowoprzepustowy"):
-        self.high_freq = high_freq
-        self.low_freq = low_freq
-        super().__init__(config, name)
-        self._name = "Filtr pasmowoprzepustowy (%.2f - %.2f Hz)" % (self.low_freq, self.high_freq)
-
-    def _process(self):
-        b, a = butter_bandpass(self.low_freq, self.high_freq, self._config.sample_frequency, order=8, analog=True)
-        y = lfilter(b, a, self.input.signal)
-        return Signal(y, self._config.sample_frequency)
-
-
 class PhaseDemodulatorBlock(Block):
     def __init__(self, config, deviation=1, carrier_freq=1, name="Demodulator fazowy"):
         self._carrier_freq = carrier_freq

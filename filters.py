@@ -11,20 +11,6 @@ def butter_lowpass(cutoff, fs, order=5, analog=False):
     return b, a
 
 
-def butter_bandpass(lowcut, highcut, fs, order=5, analog=True):
-    nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = butter(order, [low, high], btype='band', analog=analog)
-    return b, a
-
-
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
-    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
-
-
 if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
