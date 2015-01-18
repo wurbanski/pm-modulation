@@ -44,34 +44,46 @@ class PMApplication():
     def _manual_setup(self):
         print("0 => Wartości domyślne (poniżej):")
         self._print_parameters()
-        print()
+        # do-while
+        # validate each input against a set of rules
         while True:
+            print()
             validate = -1
             while validate < 0:
                 validate = finput("Częstotliwość próbkowania: ")
             self._sample_freq = validate if validate > 0 else 6400
+
             validate = -1
             while validate < 0 or validate > self._sample_freq / 2:
                 validate = finput("Częstotliwość nośnej (0 - %.2f) : " % (self._sample_freq / 2))
             self._carrier_frequency = validate if validate > 0 else self._sample_freq / 64
+
             validate = -1
             while validate < 0 or validate > self._carrier_frequency / 2:
                 validate = finput("Częstotliwość modulatora (0 - %.2f) : " % (self._carrier_frequency / 2))
             self._modulator_freq = validate if validate > 0 else self._carrier_frequency / 10
+
             validate = -1
             while validate < 0 or validate > np.pi:
                 validate = finput("Dewiacja fazy (0-%.2f): " % np.pi)
             self._phase_dev = validate if validate > 0 else 1
+
+            # break if LPF can be created
             if (self._carrier_frequency + self._BW) < self._sample_freq / 2:
                 break
+            # repeat if it cannot
+            print("Zwiększ częstotliwość próbkowania, nie da się utworzyć filtru.")
+
         validate = -1
         while validate < 0:
             validate = finput("Amplituda nośnej: ")
         self._carrier_amplitude = validate if validate > 0 else 1
+
         validate = -1
-        while validate < 0 or validate < 1 / self._sample_freq:
+        while validate < 0 or validate < 1 / self._sample_freq and validate != 0:
             validate = finput("Czas symulacji (>%.2f): " % (1 / self._sample_freq))
         self._simulation_time = validate if validate > 0 else 64 / self._carrier_frequency
+
         validate = -1
         while validate < 0:
             validate = finput("SNR (>0): ")

@@ -2,7 +2,6 @@ __author__ = 'Wojciech Urbański'
 
 import numpy as np
 import numpy.fft as fft
-import matplotlib.pyplot as plt
 
 
 class Signal():
