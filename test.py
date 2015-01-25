@@ -1,4 +1,4 @@
-from blocks import SineInputBlock, PhaseModulatorBlock, AWGNChannelBlock, LowPassFilterBlock, PhaseDemodulatorBlock
+from blocks import SineGeneratorBlock, PhaseModulatorBlock, AWGNChannelBlock, LowPassFilterBlock, PhaseDemodulatorBlock
 from system import SystemConfiguration
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +17,7 @@ print("Setting up the system...")
 config = SystemConfiguration(simulation_time, sample_freq)
 print('Timeline shape=', config.timeline.shape)
 
-input_block = SineInputBlock(config, modulator_freq)
+input_block = SineGeneratorBlock(config, modulator_freq)
 print(input_block.name)
 
 config.add_block(input_block)

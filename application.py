@@ -22,24 +22,24 @@ class PMApplication():
     _output_dir = "output"
 
     def __init__(self):
-        self._setup_environment()
         self._setup()
+        self._setup_environment()
 
     def _setup_environment(self):
         if not os.path.exists(self._output_dir):
             os.makedirs(self._output_dir)
         rc('font', family='Arial')
-        self._fft_limit = -30
+        self._fft_limit = -27
 
     def _setup(self):
-        self._modulator_freq = 10
-        self._phase_dev = 2
+        self._modulator_freq = 30
+        self._phase_dev = 20
         self._carrier_frequency = 100
         self._carrier_amplitude = 1
         self._sample_freq = 64 * self._carrier_frequency
-        self._simulation_time = 64 / self._carrier_frequency
+        self._simulation_time = 640 / self._carrier_frequency
         self._BW = 2 * (self._modulator_freq + self._phase_dev)
-        self._snr = 8
+        self._snr = 15
 
     def _manual_setup(self):
         print("0 => Wartości domyślne (poniżej):")
@@ -50,7 +50,7 @@ class PMApplication():
             print()
             validate = -1
             while validate < 0:
-                validate = finput("Częstotliwość próbkowania: ")
+                validate = finput("Szybkość próbkowania: ")
             self._sample_freq = validate if validate > 0 else 6400
 
             validate = -1
@@ -60,7 +60,7 @@ class PMApplication():
 
             validate = -1
             while validate < 0 or validate > self._carrier_frequency / 2:
-                validate = finput("Częstotliwość modulatora (0 - %.2f) : " % (self._carrier_frequency / 2))
+                validate = finput("Częstotliwość sygnału modulującego (0 - %.2f) : " % (self._carrier_frequency / 2))
             self._modulator_freq = validate if validate > 0 else self._carrier_frequency / 10
 
             validate = -1
@@ -72,7 +72,7 @@ class PMApplication():
             if (self._carrier_frequency + self._BW) < self._sample_freq / 2:
                 break
             # repeat if it cannot
-            print("Zwiększ częstotliwość próbkowania, nie da się utworzyć filtru.")
+            print("Zwiększ częstotliwość próbkowania, nie można utworzyć filtru.")
 
         validate = -1
         while validate < 0:
@@ -91,17 +91,21 @@ class PMApplication():
         self._BW = 2 * (self._modulator_freq + self._phase_dev)
 
     def run(self):
-        self._manual_setup()
+        # self._manual_setup()
+        self._setup()
         self._print_parameters()
         print("Ustawianie systemu bloków...")
         self._config = SystemConfiguration(self._simulation_time, self._sample_freq)
 
-        blocks_list = [SineInputBlock(self._config, self._modulator_freq),
+        blocks_list = [
+                       NoiseGeneratorBlock(self._config, high_freq=self._modulator_freq),
+                       # SineGeneratorBlock(self._config, self._modulator_freq),
                        PhaseModulatorBlock(self._config, self._carrier_frequency,
                                            self._carrier_amplitude, self._phase_dev),
                        AWGNChannelBlock(self._config, snr=self._snr),
-                       LowPassFilterBlock(self._config, high_freq=(self._carrier_frequency + self._BW)),
-                       PhaseDemodulatorBlock(self._config, carrier_freq=self._carrier_frequency,
+                       BandPassFilterBlock(self._config, low_freq=0.9*(self._carrier_frequency - self._BW/2),
+                                           high_freq=1.1*(self._carrier_frequency + self._BW/2)),
+                       PhaseDemodulatorBlock(self._config, frequency=self._carrier_frequency,
                                              deviation=self._phase_dev)]
 
         self._config.add_blocks(blocks_list)
@@ -110,7 +114,7 @@ class PMApplication():
         self._config.list_blocks()
 
         self._plot_outputs()
-        self._plot_input_ffts()
+        self._plot_input_fft()
         self._plot_spectrograms()
         self._plot_modulator()
 
@@ -127,17 +131,25 @@ class PMApplication():
             subplot.set_xlabel("Czas [s]", fontsize="small")
             subplot.set_ylabel("Wartość [V]", fontsize="small")
             subplot.set_title("Wyjście: %s" % self._config.blocks[i].name)
+            subplot.set_xlim(self._simulation_time/10, self._simulation_time/10 + 2/self._modulator_freq)
         signal_plot.set_tight_layout({"rect": (0, 0, 1, 0.96)})
         plt.show()
         signal_plot.savefig(os.path.join(self._output_dir, "signal.png"))
 
-    def _plot_input_ffts(self):
+    def _plot_input_fft(self):
         fft_plot, subs = plt.subplots(len(self._config.blocks), figsize=(8, 12))
         fft_plot.suptitle("Wykresy widm Fouriera", fontsize="x-large")
         for i, subplot in enumerate(subs):
             freqline, values = self._config.blocks[i].output.plot_fft()
+            low = np.min(np.where(values > self._fft_limit))
+            high = np.max(np.where(values > self._fft_limit))
+            if high-low < 20:
+                low -= 20
+                if low < 0:
+                    low = 0
+                high += 20
             subplot.set_title("Wyjście: %s" % self._config.blocks[i].name)
-            subplot.plot(freqline[values > self._fft_limit], values[values > self._fft_limit], 'b')
+            subplot.plot(freqline[low:high], values[low:high], 'b')
             subplot.grid(True)
             subplot.set_xlabel("Częstotliwość [Hz]", fontsize="small")
             subplot.set_ylabel("Moduł widma [dB]", fontsize="small")
@@ -151,45 +163,41 @@ class PMApplication():
         plt.title("Porównanie sygnału wejściowego i wyjściowego", fontsize="x-large")
         plt.hold(True)
         timeline, values_in = self._config.blocks[0].output.plot()
-        plt.plot(timeline, values_in, label="Modulator")
+        plt.plot(timeline, values_in, label="Sygnał modulujący")
         timeline, values_out = self._config.blocks[-1].output.plot()
-        plt.plot(timeline, values_out, label="Zdemodulowany", alpha=0.5)
-        plt.plot(timeline, values_in - values_out, 'r', label="Błąd demodulacji", alpha=0.6)
+        plt.plot(timeline, values_out, label="Sygnał zdemodulowany", alpha=0.5)
+        plt.plot(timeline, values_in - values_out, 'r', label="Błąd demodulacji")
         plt.grid(True)
         plt.xlabel("Czas [s]", fontsize="small")
         plt.ylabel("Wartość [V]", fontsize="small")
         plt.legend(loc="best", fancybox=True, framealpha=0.5)
-        plt.xlim(0, np.max(timeline))
+        plt.xlim(self._simulation_time/10, self._simulation_time/10 + 2/self._modulator_freq)
         plt.show()
         signal_plot.savefig(os.path.join(self._output_dir, "signal_compare.png"))
+        print("MSE: ", np.mean((values_in - values_out)**2))
 
     def _plot_spectrograms(self):
         spectrogram_plot, subplots = plt.subplots(3, figsize=(8, 12))
         plt.suptitle("Spektrogramy", fontsize="large")
         subplots[0].specgram(self._config.blocks[0].output.signal, Fs=self._sample_freq)
-        subplots[0].set_xlabel("czas [s]")
-        subplots[0].set_ylabel("częstotliwość [Hz]")
-        subplots[0].axis('tight')
-        subplots[0].grid()
         subplots[0].set_title("na wyjściu generatora")
         subplots[1].specgram(self._config.blocks[2].output.signal, Fs=self._sample_freq)
-        subplots[1].set_xlabel("czas [s]")
-        subplots[1].set_ylabel("częstotliwość [Hz]")
-        subplots[1].axis('tight')
-        subplots[1].grid()
         subplots[1].set_title("na wyjściu kanału AWGN")
         subplots[2].specgram(self._config.blocks[-1].output.signal, Fs=self._sample_freq)
-        subplots[2].set_xlabel("czas [s]")
-        subplots[2].set_ylabel("częstotliwość [Hz]")
-        subplots[2].axis('tight')
-        subplots[2].grid()
         subplots[2].set_title("na wyjściu układu")
         spectrogram_plot.set_tight_layout({"rect": (0, 0, 1, 0.95)})
+        for subplot in subplots:
+            subplot.set_xlabel("czas [s]")
+            subplot.set_ylabel("częstotliwość [Hz]")
+            subplot.axis('tight')
+            subplot.set_ylim(0, self._carrier_frequency + 10 * self._BW)
+            subplot.set_xlim(self._simulation_time/10, self._simulation_time/10 + 2/self._modulator_freq)
+            subplot.grid()
         plt.show()
         spectrogram_plot.savefig(os.path.join(self._output_dir, "spectrogram.png"))
 
     def _print_parameters(self):
-        print("Częstotliwość próbkowania: %.2f samp/s" % self._sample_freq)
+        print("Szybkość próbkowania: %.2f samp/s" % self._sample_freq)
         print("Częstotliwość nośnej: %.2f Hz" % self._carrier_frequency)
         print("Częstotliwość modulatora: %.2f Hz" % self._modulator_freq)
         print("Dewiacja fazy: %.2f rad" % self._phase_dev)

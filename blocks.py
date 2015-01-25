@@ -46,28 +46,46 @@ class Block():
         return self._name
 
 
-class SineInputBlock(Block):
-    def __init__(self, config, frequency=1, name="Generator sinusoidalny"):
+class SineGeneratorBlock(Block):
+    def __init__(self, config, frequency=1, start_ph=0, name="Generator sinusoidalny"):
         self.frequency = frequency
+        self._start_ph = start_ph
         super().__init__(config, name)
 
     def _process(self):
-        return Signal(np.sin(2 * np.pi * self.frequency * self._config.timeline), self._config.sample_frequency)
+        return Signal(np.sin(2 * np.pi * self.frequency * self._config.timeline + self._start_ph),
+                      self._config.sample_frequency)
 
     def connect(self, previous_block):
         pass
 
 
-class PhaseModulatorBlock(Block):
+class PhaseModemBlock(Block):
     def __init__(self, config, frequency=1, amplitude=1, deviation=1, name="Modulator fazowy"):
-        self.frequency = frequency
-        self.amplitude = amplitude
-        self.deviation = deviation
+        self._frequency = frequency
+        self._amplitude = amplitude
+        self._deviation = deviation
         super().__init__(config, name)
 
+
+class PhaseModulatorBlock(PhaseModemBlock):
     def _process(self):
-        return Signal(self.amplitude * np.sin(2 * np.pi * self.frequency * self._config.timeline +
-                                              self.deviation * self.input.signal), self._config.sample_frequency)
+        return Signal(self._amplitude * np.sin(2 * np.pi * self._frequency * self._config.timeline +
+                                              self._deviation * self.input.signal), self._config.sample_frequency)
+
+
+class PhaseDemodulatorBlock(PhaseModemBlock):
+    def _process(self):
+        # Create analytic signal using Hilbert transform
+        # Using hilbert twice changes signal to -signal
+        h_signal = -hilbert(hilbert(self.input.signal).imag)
+        # Angle of analytic signal corresponds to phase of given signal
+        phase = np.unwrap(np.angle(h_signal))
+        # We reduce the phase value by linear component omega*t
+        output = (phase - 2 * np.pi * self._frequency * self._config.timeline) / self._deviation
+        # unwrap() sometimes changes first few samples by too much, substracting mean() fixes this
+        # output -= np.mean(output)
+        return Signal(output, self._config.sample_frequency)
 
 
 class AWGNChannelBlock(Block):
@@ -94,33 +112,27 @@ class AWGNChannelBlock(Block):
         return 10 * np.log10(signal_pwr / noise_pwr)
 
 
-class LowPassFilterBlock(Block):
-    def __init__(self, config, high_freq=10, name="Filtr dolprzepustowy"):
-        self.high_freq = high_freq
+class BandPassFilterBlock(Block):
+    def __init__(self, config, low_freq=5, high_freq=10, order=3, name="Filtr dolprzepustowy"):
+        self._high_freq = high_freq
+        self._low_freq = low_freq
+        self._order = order
         super().__init__(config, name)
-        self._name = "Filtr dolnoprzepustowy (0 - %.2f Hz)" % self.high_freq
+        self._name = "Filtr pasmoprzepustowy (%.2f - %.2f Hz)" % (self._low_freq, self._high_freq)
 
     def _process(self):
-        b, a = butter_lowpass(self.high_freq, self._config.sample_frequency, analog=False)
+        b, a = butter_bandpass(self._low_freq, self._high_freq, self._config.sample_frequency, order=self._order)
         y = lfilter(b, a, self.input.signal)
-        return Signal(10e10 * y, self._config.sample_frequency)
+        return Signal(y, self._config.sample_frequency)
 
 
-class PhaseDemodulatorBlock(Block):
-    def __init__(self, config, deviation=1, carrier_freq=1, name="Demodulator fazowy"):
-        self._carrier_freq = carrier_freq
-        self._deviation = deviation
+class NoiseGeneratorBlock(Block):
+    def __init__(self, config, high_freq, name="Generator szumu pasmowego"):
+        self._high_freq = high_freq
         super().__init__(config, name)
 
     def _process(self):
-        # Create analytic signal using Hilbert transform
-        # Using hilbert twice changes signal to -signal
-        h_signal = -hilbert(hilbert(self.input.signal).imag)
-        # Angle of analytic signal corresponds to phase of given signal
-        phase = np.unwrap(np.angle(h_signal))
-        # We reduce the phase value by linear component omega*t
-        output = (phase - 2 * np.pi * self._carrier_freq * self._config.timeline) / self._deviation
-        # unwrap() sometimes changes first few samples by too much, substracting mean() fixes this
-        output -= np.mean(output)
-        # output = detrend(phase)
-        return Signal(output, self._config.sample_frequency)
+        noise = np.random.normal(loc=0.0, scale=1, size=self._config.timeline.shape)
+        b, a = butter_lowpass(self._high_freq, self._config.sample_frequency, order=5)
+        y = lfilter(b, a, noise)
+        return Signal(y, self._config.sample_frequency)
