@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import lfilter, hilbert
+from scipy.signal import lfilter, hilbert, filtfilt
 
 from filters import butter_lowpass, butter_bandpass
 from signals import Signal
@@ -71,7 +71,7 @@ class PhaseModemBlock(Block):
 class PhaseModulatorBlock(PhaseModemBlock):
     def _process(self):
         return Signal(self._amplitude * np.sin(2 * np.pi * self._frequency * self._config.timeline +
-                                              self._deviation * self.input.signal), self._config.sample_frequency)
+                                               self._deviation * self.input.signal), self._config.sample_frequency)
 
 
 class PhaseDemodulatorBlock(PhaseModemBlock):
@@ -113,7 +113,7 @@ class AWGNChannelBlock(Block):
 
 
 class BandPassFilterBlock(Block):
-    def __init__(self, config, low_freq=5, high_freq=10, order=3, name="Filtr dolprzepustowy"):
+    def __init__(self, config, low_freq=5, high_freq=10, order=5, name="Filtr dolprzepustowy"):
         self._high_freq = high_freq
         self._low_freq = low_freq
         self._order = order
@@ -122,7 +122,7 @@ class BandPassFilterBlock(Block):
 
     def _process(self):
         b, a = butter_bandpass(self._low_freq, self._high_freq, self._config.sample_frequency, order=self._order)
-        y = lfilter(b, a, self.input.signal)
+        y = filtfilt(b, a, self.input.signal)
         return Signal(y, self._config.sample_frequency)
 
 
@@ -134,5 +134,5 @@ class NoiseGeneratorBlock(Block):
     def _process(self):
         noise = np.random.normal(loc=0.0, scale=1, size=self._config.timeline.shape)
         b, a = butter_lowpass(self._high_freq, self._config.sample_frequency, order=5)
-        y = lfilter(b, a, noise)
+        y = filtfilt(b, a, noise)
         return Signal(y, self._config.sample_frequency)

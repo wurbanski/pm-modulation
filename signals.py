@@ -11,7 +11,7 @@ class Signal():
         self._sample_frequency = sample_frequency
 
     def _calculate_fft(self):
-        spectrum = fft.fftshift(fft.fft(self.signal * np.blackman(self._length)))
+        spectrum = fft.fftshift(fft.fft(self.signal * np.hanning(self._length)))
         return spectrum[len(spectrum) / 2:] / np.max(np.abs(spectrum))
 
     def get_energy(self):

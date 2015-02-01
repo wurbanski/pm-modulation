@@ -29,11 +29,11 @@ class PMApplication():
         if not os.path.exists(self._output_dir):
             os.makedirs(self._output_dir)
         rc('font', family='Arial')
-        self._fft_limit = -27
+        self._fft_limit = -200
 
     def _setup(self):
-        self._modulator_freq = 30
-        self._phase_dev = 20
+        self._modulator_freq = 10
+        self._phase_dev = 2
         self._carrier_frequency = 100
         self._carrier_amplitude = 1
         self._sample_freq = 64 * self._carrier_frequency
@@ -98,8 +98,8 @@ class PMApplication():
         self._config = SystemConfiguration(self._simulation_time, self._sample_freq)
 
         blocks_list = [
-                       NoiseGeneratorBlock(self._config, high_freq=self._modulator_freq),
-                       # SineGeneratorBlock(self._config, self._modulator_freq),
+                       # NoiseGeneratorBlock(self._config, high_freq=self._modulator_freq),
+                       SineGeneratorBlock(self._config, self._modulator_freq),
                        PhaseModulatorBlock(self._config, self._carrier_frequency,
                                            self._carrier_amplitude, self._phase_dev),
                        AWGNChannelBlock(self._config, snr=self._snr),
@@ -113,10 +113,10 @@ class PMApplication():
         self._config.connect_blocks()
         self._config.list_blocks()
 
+        self._plot_modulator()
         self._plot_outputs()
         self._plot_input_fft()
         self._plot_spectrograms()
-        self._plot_modulator()
 
         print("Rzeczywisty SNR: ", self._config.blocks[2].get_snr())
 
@@ -149,11 +149,13 @@ class PMApplication():
                     low = 0
                 high += 20
             subplot.set_title("Wyjście: %s" % self._config.blocks[i].name)
-            subplot.plot(freqline[low:high], values[low:high], 'b')
+            subplot.plot(freqline, values, 'b')
             subplot.grid(True)
             subplot.set_xlabel("Częstotliwość [Hz]", fontsize="small")
             subplot.set_ylabel("Moduł widma [dB]", fontsize="small")
             subplot.axis('tight')
+            subplot.set_xlim(0, 500)
+            subplot.set_ylim(-80, 0)
         fft_plot.set_tight_layout({"rect": (0, 0, 1, 0.95)})
         plt.show()
         fft_plot.savefig(os.path.join(self._output_dir, "spectrum.png"))
@@ -172,6 +174,7 @@ class PMApplication():
         plt.ylabel("Wartość [V]", fontsize="small")
         plt.legend(loc="best", fancybox=True, framealpha=0.5)
         plt.xlim(self._simulation_time/10, self._simulation_time/10 + 2/self._modulator_freq)
+        plt.ylim(-1.1, 1.1)
         plt.show()
         signal_plot.savefig(os.path.join(self._output_dir, "signal_compare.png"))
         print("MSE: ", np.mean((values_in - values_out)**2))
